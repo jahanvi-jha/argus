@@ -6,7 +6,7 @@ import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
-
+import { useWalletPositions } from '@/hooks/useWalletPositions';
 const navigationItems = [
   { label: "Landing", icon: "🏠", id: "landing", active: true },
   { label: "Dashboard", icon: "📊", id: "dashboard" },
@@ -19,6 +19,7 @@ const navigationItems = [
 
 export default function Home() {
   const { connected, disconnect, publicKey, select, wallets } = useWallet();
+  const { positions, loading } = useWalletPositions();
 
   const truncatedAddress = publicKey
     ? `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}`
@@ -29,18 +30,14 @@ export default function Home() {
   }, [disconnect]);
 
   const handlePhantomConnect = useCallback(() => {
-    const phantomWallet = wallets.find(
-      (w) => w.adapter.name === "Phantom"
-    );
+    const phantomWallet = wallets.find((w) => w.adapter.name === "Phantom");
     if (phantomWallet) {
       select(phantomWallet.adapter.name);
     }
   }, [wallets, select]);
 
   const handleSolflareConnect = useCallback(() => {
-    const solflareWallet = wallets.find(
-      (w) => w.adapter.name === "Solflare"
-    );
+    const solflareWallet = wallets.find((w) => w.adapter.name === "Solflare");
     if (solflareWallet) {
       select(solflareWallet.adapter.name);
     }
@@ -274,21 +271,54 @@ export default function Home() {
                 />
               </svg>
             </button>
+                {connected && (
+              <div className="mt-4 text-left px-6 py-4 bg-slate-900/70 border border-slate-800 rounded-lg">
+                <p className="text-xs font-semibold text-slate-400 mb-2">
+                  Token positions ({positions.length})
+                </p>
+
+                {loading ? (
+                  <p className="text-xs text-slate-500">Loading positions…</p>
+                ) : positions.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    No SPL tokens found yet on this network.
+                  </p>
+                ) : (
+                  <div className="space-y-1 max-h-40 overflow-auto">
+                    {positions.map((pos, i) => (
+                      <div
+                        key={i}
+                        className="flex justify-between text-xs text-slate-300 font-mono"
+                      >
+                        <span>{pos.mint.slice(0, 6)}…</span>
+                        <span>{pos.balance.toFixed(4)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Security Info */}
           <div className="flex items-center justify-center gap-6 pt-8 border-t border-slate-700">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-              <span className="text-slate-400 text-xs">Read-only by default</span>
+              <span className="text-slate-400 text-xs">
+                Read-only by default
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-              <span className="text-slate-400 text-xs">Limited session keys</span>
+              <span className="text-slate-400 text-xs">
+                Limited session keys
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-              <span className="text-slate-400 text-xs">You confirm every action</span>
+              <span className="text-slate-400 text-xs">
+                You confirm every action
+              </span>
             </div>
           </div>
         </div>
