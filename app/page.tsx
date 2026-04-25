@@ -15,7 +15,14 @@ const navigationItems = [
   { label: "History", icon: "📋", id: "history" },
 ];
 
-const Sidebar = ({ activeNav, setActiveNav, onDisconnect, showDisconnect = false }) => (
+interface SidebarProps {
+  activeNav: string;
+  setActiveNav: (id: string) => void;
+  onDisconnect: () => void;
+  showDisconnect?: boolean;
+}
+
+const Sidebar = ({ activeNav, setActiveNav, onDisconnect, showDisconnect = false }: SidebarProps) => (
   <div className="w-48 border-r border-slate-800 bg-slate-950 flex flex-col sticky top-0 h-screen">
     <div className="p-5 border-b border-slate-800">
       <div className="flex items-center gap-2">
