@@ -3,6 +3,9 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
 
+// 🚀 HACKATHON DEMO MODE - Show real devnet wallet tokens
+// Connect your wallet and we'll fetch your actual devnet token positions
+
 export interface TokenPosition {
   mint: string;
   balance: number;
@@ -21,12 +24,23 @@ export function useWalletPositions() {
       return;
     }
     fetchPositions(publicKey);
+    
+    // Refresh every 60 seconds to avoid rate limiting on public mainnet RPC
+    const interval = setInterval(() => {
+      fetchPositions(publicKey);
+    }, 60000);
+    
+    return () => clearInterval(interval);
   }, [publicKey]);
 
   const fetchPositions = async (pk: PublicKey) => {
     setLoading(true);
     try {
-      const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+      // Use devnet for demo - fetch real tokens from user's devnet wallet
+      const rpcUrl = 'https://api.devnet.solana.com';
+      const walletAddress = pk.toBase58();
+      console.log('🪙 Demo Mode: Fetching your devnet token positions');
+      
       const response = await fetch(rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,7 +49,7 @@ export function useWalletPositions() {
           id: '1',
           method: 'getTokenAccountsByOwner',
           params: [
-             pk.toBase58(),
+             walletAddress,
             { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, // SPL Token
             { encoding: 'jsonParsed' },
           ],
@@ -52,7 +66,7 @@ export function useWalletPositions() {
           mint: acc.account.data.parsed.info.mint,
           balance: acc.account.data.parsed.info.tokenAmount.uiAmount || 0,
           decimals: acc.account.data.parsed.info.tokenAmount.decimals,
-          symbol: acc.account.data.parsed.info.tokenList?.symbol || 'Unknown',
+          symbol: acc.account.data.parsed.info.tokenList?.symbol || 'SPL-Token',
         }));
 
       console.log('📊 PROCESSED POSITIONS:', positions); // Task 4 ✓
@@ -64,5 +78,5 @@ export function useWalletPositions() {
     }
   };
 
-  return { positions, loading, refetch: fetchPositions };
+  return { positions, loading, refetch: () => publicKey && fetchPositions(publicKey) };
 }
