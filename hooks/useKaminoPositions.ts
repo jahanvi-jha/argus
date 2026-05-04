@@ -19,6 +19,9 @@ export interface KaminoPosition {
   riskStatus: RiskStatus;
   ltvPercentage: number;
   liquidationPrice: number;
+  borrow_rate_apy: number;
+  interest_accrued_usd: number;
+  interest_accruing_per_day_usd: number;
 }
 
 // Risk classification logic
@@ -42,6 +45,9 @@ const MOCK_POSITIONS: KaminoPosition[] = [
     riskStatus: 'safe',
     ltvPercentage: 46.7,
     liquidationPrice: 67.40,
+    borrow_rate_apy: 0.084, // 8.4% APY
+    interest_accrued_usd: 120.50,
+    interest_accruing_per_day_usd: Math.round((11590 * 0.084 / 365) * 100) / 100, // ≈2.67
   },
   {
     id: 'position-2',
@@ -55,6 +61,9 @@ const MOCK_POSITIONS: KaminoPosition[] = [
     riskStatus: 'caution',
     ltvPercentage: 76.3,
     liquidationPrice: 188.20,
+    borrow_rate_apy: 0.061, // 6.1% APY
+    interest_accrued_usd: 44.10,
+    interest_accruing_per_day_usd: Math.round((5259 * 0.061 / 365) * 100) / 100, // ≈0.88
   },
 ];
 

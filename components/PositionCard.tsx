@@ -8,21 +8,25 @@ interface PositionCardProps {
 
 const getProtocolIcon = (market: string) => {
   const icons: { [key: string]: string } = {
-    "Aave": "🔵",
-    "Compound": "🟢",
-    "MakerDAO": "🟢",
-    "Spark": "🟡",
-    "Kamino": "K",
+    Aave: "🔵",
+    Compound: "🟢",
+    MakerDAO: "🟢",
+    Spark: "🟡",
+    Kamino: "K",
   };
   return icons[market] || market.charAt(0);
 };
 
 const getBorderColor = (riskStatus: string) => {
   switch (riskStatus) {
-    case "safe": return "#22C55E";
-    case "caution": return "#F59E0B";
-    case "danger": return "#EF4444";
-    default: return "#3B82F6";
+    case "safe":
+      return "#22C55E";
+    case "caution":
+      return "#F59E0B";
+    case "danger":
+      return "#EF4444";
+    default:
+      return "#3B82F6";
   }
 };
 
@@ -45,7 +49,7 @@ export default function PositionCard({ position }: PositionCardProps) {
       {/* Header - Protocol Name and Health Factor */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div 
+          <div
             className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
             style={{
               backgroundColor: `${borderColor}20`,
@@ -55,11 +59,13 @@ export default function PositionCard({ position }: PositionCardProps) {
             {getProtocolIcon(position.market)}
           </div>
           <div>
-            <h3 className="font-semibold text-white text-sm">{position.market}</h3>
+            <h3 className="font-semibold text-white text-sm">
+              {position.market}
+            </h3>
             <p className="text-xs text-slate-400">{position.pair}</p>
           </div>
         </div>
-        
+
         {/* Health Factor */}
         <div className="text-right">
           <p className="text-xs text-slate-400 mb-1">Health Factor</p>
