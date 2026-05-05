@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useKaminoPositions } from "@/hooks/useKaminoPositions";
 import PositionCard from "@/components/PositionCard";
@@ -88,10 +88,93 @@ export default function Home() {
     useKaminoPositions();
   const [activeNav, setActiveNav] = useState<string>("landing");
   const [isChatClosed, setIsChatClosed] = useState<boolean>(false);
+  const [simulatedDrop, setSimulatedDrop] = useState<number>(20);
+  const [confirmSubmitted, setConfirmSubmitted] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (activeNav !== "confirm-tx") {
+      setConfirmSubmitted(false);
+    }
+  }, [activeNav]);
+
+  const simulatedPosition = kaminoPositions.find((pos) =>
+    pos.pair.toLowerCase().includes("msol"),
+  );
+  const baseSimulatedPrice = 183.0;
+  const displayLiqPrice = 148.0;
+  const dropFraction = simulatedDrop / 100;
+  const simulatedPrice = parseFloat(
+    (baseSimulatedPrice * (1 - dropFraction)).toFixed(2),
+  );
+  const simulatedHealthFactor = parseFloat(
+    ((simulatedPosition?.healthFactor ?? 1) * (1 - dropFraction)).toFixed(2),
+  );
+  const simulatedLiqDistance = simulatedPosition
+    ? parseFloat(
+        (
+          simulatedPosition.liquidationDistance *
+          (simulatedHealthFactor / simulatedPosition.healthFactor)
+        ).toFixed(1),
+      )
+    : 0;
+  const simulatedStatus =
+    simulatedHealthFactor > 1.5
+      ? "safe"
+      : simulatedHealthFactor >= 1.2
+        ? "caution"
+        : "danger";
+  const isLiquidated = simulatedHealthFactor <= 1.0;
+  const simulatedCollateralValue = simulatedPosition
+    ? parseFloat(
+        (
+          simulatedPosition.collateralValue *
+          (simulatedPrice / baseSimulatedPrice)
+        ).toFixed(2),
+      )
+    : 0;
+  const simulatedLTV = simulatedPosition
+    ? parseFloat(
+        (
+          (simulatedPosition.borrowValue / simulatedCollateralValue) *
+          100
+        ).toFixed(1),
+      )
+    : 0;
+  const penaltyFee = simulatedPosition
+    ? Math.round(simulatedPosition.borrowValue * 0.12)
+    : 0;
+  const totalLoss = simulatedPosition
+    ? Math.round(simulatedPosition.collateralValue)
+    : 0;
 
   const truncatedAddress = publicKey
     ? `${publicKey.toString().slice(0, 6)}...${publicKey.toString().slice(-4)}`
     : null;
+
+  // Confirm TX calculations
+  const repayAmount = 1500;
+  const currentPrice = baseSimulatedPrice;
+  const beforeDebt = simulatedPosition?.borrowValue || 5259;
+  const beforeCollateral = simulatedPosition?.collateralValue || 8280;
+  const beforeHF = simulatedPosition?.healthFactor || 1.31;
+  const beforeLiqPrice = parseFloat((((beforeDebt / beforeCollateral) * currentPrice)).toFixed(2));
+  const afterDebt = beforeDebt - repayAmount;
+  const afterHF = parseFloat((beforeCollateral / afterDebt).toFixed(2));
+  const afterLiqPrice = parseFloat((((afterDebt / beforeCollateral) * currentPrice)).toFixed(2));
+  const totalDebtBefore = 6259; // hardcoded to match
+  const totalDebtAfter = 4759;
+
+  const handleDashboardAction = (action: string) => {
+    if (action === "simulate") {
+      setActiveNav("simulator");
+      return;
+    }
+    if (action === "protect" || action === "repay") {
+      setConfirmSubmitted(false);
+      setActiveNav("confirm-tx");
+      return;
+    }
+  };
 
   const handleDisconnect = useCallback(() => {
     disconnect();
@@ -166,7 +249,9 @@ export default function Home() {
 
         <div className="flex-1 flex">
           {/* Left Panel - 55% or Full Width */}
-          <div className={`${isChatClosed ? "w-full" : "w-[55%]"} overflow-auto border-r border-slate-800 transition-all duration-300`}>
+          <div
+            className={`${isChatClosed ? "w-full" : "w-[55%]"} overflow-auto border-r border-slate-800 transition-all duration-300`}
+          >
             <div className="px-8 py-8">
               {/* Header with Wallet & Disconnect */}
               <div className="flex items-center justify-between mb-8">
@@ -264,6 +349,7 @@ export default function Home() {
                   {recommendation.buttons.map((btn, idx) => (
                     <button
                       key={idx}
+                      onClick={() => handleDashboardAction(btn.action)}
                       className={`text-sm px-4 py-2 rounded-lg font-medium transition-all ${
                         idx === 0
                           ? overallRiskStatus === "safe"
@@ -309,9 +395,15 @@ export default function Home() {
           </div>
 
           {/* Right Panel - 45% AI Chat */}
-          <div className={`${isChatClosed ? "hidden" : "w-[45%]"} bg-linear-to-b from-slate-900/50 to-slate-950/50 border-l border-slate-800 flex flex-col sticky top-0 h-screen transition-all duration-300`}>
-              {connected && activeNav === "dashboard" ? (
-              <ArgusChatPanel isCollapsible={true} isCollapsed={false} onToggleCollapse={() => setIsChatClosed(true)} />
+          <div
+            className={`${isChatClosed ? "hidden" : "w-[45%]"} bg-linear-to-b from-slate-900/50 to-slate-950/50 border-l border-slate-800 flex flex-col sticky top-0 h-screen transition-all duration-300`}
+          >
+            {connected && activeNav === "dashboard" ? (
+              <ArgusChatPanel
+                isCollapsible={true}
+                isCollapsed={false}
+                onToggleCollapse={() => setIsChatClosed(true)}
+              />
             ) : (
               <div className="flex-1 flex items-center justify-center px-6 py-8 overflow-auto">
                 <div className="text-center">
@@ -351,7 +443,9 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-white">Argus AI Chat</h1>
-                <p className="text-slate-400 text-sm">Ask anything about your positions</p>
+                <p className="text-slate-400 text-sm">
+                  Ask anything about your positions
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-white font-mono text-sm font-semibold mb-2">
@@ -369,7 +463,518 @@ export default function Home() {
 
           {/* Full-screen Chat Panel */}
           <div className="flex-1 overflow-hidden">
-            <ArgusChatPanel isCollapsible={false} isCollapsed={false} onToggleCollapse={() => {}} />
+            <ArgusChatPanel
+              isCollapsible={false}
+              isCollapsed={false}
+              onToggleCollapse={() => {}}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Simulator Screen
+  if (connected && activeNav === "simulator") {
+    return (
+      <div className="min-h-screen flex bg-[#0A0A0F]">
+        <Sidebar
+          activeNav={activeNav}
+          setActiveNav={setActiveNav}
+          onDisconnect={handleDisconnect}
+          showDisconnect={true}
+        />
+
+        <div className="flex-1 overflow-auto px-8 py-8">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500 mb-2">
+                  Price Scenario Simulator
+                </p>
+                <h1 className="text-3xl font-bold text-white">
+                  Simulate Price Risk
+                </h1>
+                <p className="text-slate-400 mt-2 max-w-2xl text-sm">
+                  Test a price drop for your mSOL / USDC position and see the
+                  simulated health factor, liquidation distance, and protection
+                  recommendation.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <button
+                  onClick={() => setActiveNav("ai-chat")}
+                  className="px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 transition"
+                >
+                  Chat
+                </button>
+                <button
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+                  onClick={() => setActiveNav("simulator")}
+                >
+                  Simulate
+                </button>
+              </div>
+            </div>
+
+            {/* Price Scenario Simulator Card */}
+            <div className="rounded-3xl border border-[#17202A] bg-[#111118] p-6 shadow-[0_0_80px_rgba(0,229,255,0.08)]">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.35em] text-cyan-300 mb-2">
+                      Price Scenario Simulator
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full bg-[#0F131A] px-3 py-2 text-sm text-slate-300 border border-slate-800">
+                      <span>Simulating:</span>
+                      <strong className="text-white">mSOL / USDC — Kamino</strong>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-slate-400 text-xs">
+                      Current price: ${baseSimulatedPrice.toFixed(2)} ·
+                      Liquidation at: ${displayLiqPrice.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Price Drop Slider */}
+                <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-6">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.18em] text-slate-500">
+                        Price drop scenario
+                      </p>
+                      <p className="text-sm text-slate-200 mt-1">
+                        mSOL at ${simulatedPrice.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-4xl font-semibold text-white tracking-tight">
+                      -{simulatedDrop}%
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <input
+                      type="range"
+                      min={0}
+                      max={80}
+                      value={simulatedDrop}
+                      onChange={(e) => setSimulatedDrop(Number(e.target.value))}
+                      className="w-full h-3 rounded-full accent-cyan-400 overflow-hidden"
+                      style={{
+                        background: `linear-gradient(90deg, #10b981 0%, #f59e0b 45%, #ef4444 100%)`,
+                        outline: "none",
+                      }}
+                    />
+                    <div className="flex items-center justify-between text-xs uppercase tracking-[0.35em] text-slate-500">
+                      <span>0% No change</span>
+                      <span>-25% midpoint</span>
+                      <span>-80% max drop</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Simulation Results Card */}
+            <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6 shadow-[0_0_80px_rgba(0,229,255,0.08)]">
+              <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+                  <div className="flex items-center justify-between mb-4 gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                        Simulation Results
+                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <span className={`text-4xl font-bold ${
+                          simulatedStatus === "safe"
+                            ? "text-white"
+                            : simulatedStatus === "caution"
+                              ? "text-amber-300"
+                              : "text-red-400"
+                        }`}>
+                          {simulatedHealthFactor.toFixed(2)}
+                        </span>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            simulatedStatus === "safe"
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : simulatedStatus === "caution"
+                                ? "bg-amber-500/15 text-amber-300"
+                                : "bg-red-500/15 text-red-300"
+                          }`}
+                        >
+                          {simulatedStatus.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
+                        New state
+                      </p>
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-200">
+                        <div className="flex justify-between mb-2">
+                          <span>New collateral value</span>
+                          <strong>
+                            ${simulatedCollateralValue.toFixed(2)}
+                          </strong>
+                        </div>
+                              <div className="flex justify-between mb-2">
+                          <span>New LTV</span>
+                          <strong
+                            className={
+                              simulatedLTV > 90
+                                ? "text-red-400"
+                                : simulatedStatus === "caution"
+                                  ? "text-amber-300"
+                                  : "text-slate-200"
+                            }
+                          >
+                            {simulatedLTV.toFixed(1)}%
+                          </strong>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span>Distance to liquidation</span>
+                          <strong
+                            className={
+                              simulatedLiqDistance <= 0
+                                ? "text-red-400"
+                                : simulatedStatus === "caution"
+                                  ? "text-amber-300"
+                                  : "text-slate-200"
+                            }
+                          >
+                            {simulatedLiqDistance <= 0
+                              ? "Already past liquidation threshold"
+                              : `${simulatedLiqDistance.toFixed(1)}%`}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(simulatedStatus === "danger" || isLiquidated) && (
+                    <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5">
+                      <p className="text-sm font-semibold text-amber-300 mb-3">
+                        Warning: Liquidation Risk
+                      </p>
+                      <p className="text-sm text-slate-200">
+                        At this price, liquidation bots can take your mSOL. Act
+                        before this happens.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+                  <div className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-4">
+                    Position details
+                  </div>
+                  <div className="grid gap-4 text-sm text-slate-300">
+                    <div className="flex justify-between">
+                      <span>Pair</span>
+                      <strong>
+                        {simulatedPosition?.pair ?? "mSOL / USDC"}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Collateral value</span>
+                      <strong>${simulatedCollateralValue.toFixed(2)}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Borrow value</span>
+                      <strong>
+                        ${simulatedPosition?.borrowValue.toFixed(2) ?? "0.00"}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Current HF</span>
+                      <strong>
+                        {simulatedPosition?.healthFactor.toFixed(2) ?? "0.00"}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Liquidation price</span>
+                      <strong>${displayLiqPrice.toFixed(2)}</strong>
+                    </div>
+                  </div>
+
+                  {(simulatedStatus === "caution" ||
+                    simulatedStatus === "danger") && (
+                    <div className="mt-6">
+                      <button
+                        onClick={() => {
+                          setConfirmSubmitted(false);
+                          setActiveNav("confirm-tx");
+                        }}
+                        className="w-full rounded-2xl bg-[#00E5FF] px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition"
+                      >
+                        Protect My Position →
+                      </button>
+                      <p className="text-xs text-slate-500 mt-2 text-center">
+                        Returns you to Confirm Tx to review Argus's recommendation.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Confirm Transaction Screen
+  if (connected && activeNav === "confirm-tx") {
+    return (
+      <div className="min-h-screen flex bg-[#0A0A0F]">
+        <Sidebar
+          activeNav={activeNav}
+          setActiveNav={setActiveNav}
+          onDisconnect={handleDisconnect}
+          showDisconnect={true}
+        />
+
+        <div className="flex-1 overflow-auto px-8 py-8">
+          <div className="mx-auto max-w-6xl space-y-8">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <div className="flex items-center gap-3 text-sm text-slate-400">
+                  <button
+                    onClick={() => {
+                      setActiveNav("simulator");
+                      setConfirmSubmitted(false);
+                    }}
+                    className="text-slate-400 hover:text-white transition"
+                  >
+                    ← Back
+                  </button>
+                  <span className="text-slate-500">|</span>
+                  <span className="uppercase tracking-[0.3em] text-slate-500">
+                    Confirm Transaction
+                  </span>
+                </div>
+                <h1 className="mt-3 text-4xl font-bold text-white">
+                  Confirm Transaction
+                </h1>
+                <p className="mt-3 max-w-2xl text-slate-400">
+                  Review exactly what will happen before confirming.
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-3xl border border-slate-800 bg-[#111118] px-4 py-3 text-sm text-slate-300">
+                <div className="rounded-full bg-[#0F131A] px-3 py-1 text-slate-300">
+                  {truncatedAddress}
+                </div>
+                <div className="rounded-full bg-[#0F131A] px-3 py-1 text-slate-300">
+                  Connected Wallet
+                </div>
+              </div>
+            </div>
+
+            {!confirmSubmitted ? (
+              <>
+                <div className="grid gap-6 xl:grid-cols-[1fr_0.86fr]">
+                  <div className="space-y-6">
+                    <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6 shadow-[0_0_40px_rgba(0,229,255,0.08)]">
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1 rounded-2xl bg-cyan-500/10 p-3 text-cyan-300">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          className="h-6 w-6"
+                        >
+                          <path d="M12 2L4 5v6c0 5.25 3.8 10.74 8 12 4.2-1.26 8-6.75 8-12V5l-8-3z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.35em] text-cyan-300 mb-2">
+                          Repay to protect your position
+                        </p>
+                        <h2 className="text-xl font-semibold text-white">
+                          mSOL / USDC · Kamino Finance
+                        </h2>
+                        <div className="mt-4 rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
+                          You are repaying <span className="text-white font-semibold">$1,500 USDC</span> from your wallet to your Kamino mSOL/USDC loan. This brings your health factor from the caution zone into the safe zone.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                    <div className="mb-4 text-xs uppercase tracking-[0.35em] text-slate-500">
+                      Before & After
+                    </div>
+                    <div className="grid gap-4 text-sm text-slate-300">
+                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
+                        <span className="text-slate-500">Health factor</span>
+                        <span className="text-amber-300">{beforeHF.toFixed(2)}</span>
+                        <span className="text-emerald-300 font-semibold">{afterHF.toFixed(2)} ✓</span>
+                      </div>
+                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
+                        <span className="text-slate-500">Total debt</span>
+                        <span>${totalDebtBefore}</span>
+                        <span>${totalDebtAfter}</span>
+                      </div>
+                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
+                        <span className="text-slate-500">Liq price</span>
+                        <span className="text-amber-300">${beforeLiqPrice.toFixed(2)}</span>
+                        <span className="text-emerald-300">${afterLiqPrice.toFixed(2)}</span>
+                      </div>
+                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4">
+                        <span className="text-slate-500">Risk status</span>
+                        <span className="text-amber-300">Caution</span>
+                        <span className="text-emerald-300">Safe</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                    <div className="mb-4 text-xs uppercase tracking-[0.35em] text-slate-500">
+                      Transaction cost breakdown
+                    </div>
+                    <div className="grid gap-4 text-sm text-slate-300">
+                      <div className="flex justify-between border-b border-slate-800 pb-3">
+                        <span>Repay amount</span>
+                        <span>$1,500.00 USDC</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-800 pb-3">
+                        <div>
+                          <p>Argus fee</p>
+                          <p className="text-xs text-slate-500">0.25% of repay amount</p>
+                        </div>
+                        <span>$3.75 USDC</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-800 pb-3">
+                        <div>
+                          <p>Solana network fee</p>
+                          <p className="text-xs text-slate-500">~0.000005 SOL / $0.001</p>
+                        </div>
+                        <span>Estimated</span>
+                      </div>
+                      <div className="flex justify-between pt-3 text-white text-lg font-semibold">
+                        <span>Total cost</span>
+                        <span>$1,503.75 USDC</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6 space-y-4">
+                    <div className="rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
+                      <p className="font-semibold text-white">🔒 Argus uses a limited session key</p>
+                      <p className="mt-2 text-slate-400">
+                        It can only repay loans on Kamino, never send funds to external wallets. Your session cap is strictly enforced.
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-[#0F131A] border border-amber-500/20 p-4 text-sm text-amber-300">
+                      <p className="font-semibold">⚠️ This action cannot be undone once submitted to Solana.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                  <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-slate-300">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                          Active position
+                        </p>
+                        <p className="text-lg font-semibold text-white">
+                          mSOL / USDC
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">
+                        Caution
+                      </span>
+                    </div>
+                    <div className="space-y-3 text-sm text-slate-300">
+                      <div className="flex justify-between">
+                        <span>Collateral</span>
+                        <strong>${beforeCollateral.toFixed(0)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Borrow</span>
+                        <strong>${beforeDebt.toFixed(0)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Current HF</span>
+                        <strong>{beforeHF.toFixed(2)}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Liq price</span>
+                        <strong>${beforeLiqPrice.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sticky top-8 rounded-3xl border border-slate-800 bg-[#111118] p-6 shadow-[0_0_40px_rgba(0,229,255,0.06)]">
+                <div className="mb-6 rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-sm text-slate-300">
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
+                    Transaction summary
+                  </p>
+                  <p className="text-white">Repaying $1,500 USDC · Health factor {beforeHF.toFixed(2)} → {afterHF.toFixed(2)}</p>
+                </div>
+                <button
+                  onClick={() => setConfirmSubmitted(true)}
+                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-3xl bg-[#00E5FF] px-4 py-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 transition"
+                >
+                  <span>🔒</span>
+                  Confirm — Repay $1,500 USDC
+                </button>
+                <button
+                  onClick={() => setActiveNav("simulator")}
+                  className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4 text-sm text-slate-300 hover:bg-slate-900 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+            ) : (
+              <div className="grid gap-6 xl:grid-cols-[1fr_0.86fr]">
+                <div className="space-y-6">
+                  <div className="rounded-3xl border border-slate-800 bg-[#111118] p-10 text-center shadow-[0_0_40px_rgba(0,229,255,0.08)]">
+                    <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-8 w-8">
+                        <path d="M9 12.5l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <h2 className="text-3xl font-semibold text-white mb-2">Position Protected</h2>
+                    <p className="mx-auto max-w-xl text-slate-400 mb-6">
+                      Your health factor is now {afterHF.toFixed(2)}. Argus is watching your position.
+                    </p>
+                    <p className="text-5xl font-bold text-emerald-300 mb-2">{afterHF.toFixed(2)}</p>
+                    <span className="inline-flex rounded-full bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300">
+                      Safe
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                  <div className="mb-6 rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-sm text-slate-300">
+                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
+                      Transaction summary
+                    </p>
+                    <p className="text-white">Your repay completed. Health factor is now {afterHF.toFixed(2)} and your position is protected.</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveNav("dashboard")}
+                    className="mb-3 w-full rounded-3xl bg-[#00E5FF] px-4 py-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 transition"
+                  >
+                    Back to Dashboard
+                  </button>
+                  <button
+                    onClick={() => setActiveNav("simulator")}
+                    className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4 text-sm text-slate-300 hover:bg-slate-900 transition"
+                  >
+                    View Simulation
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
