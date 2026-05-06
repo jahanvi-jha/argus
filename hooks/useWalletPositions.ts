@@ -1,5 +1,6 @@
 'use client';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useDemo } from '@/contexts/DemoContext';
 import { PublicKey } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
 
@@ -15,31 +16,43 @@ export interface TokenPosition {
 
 export function useWalletPositions() {
   const { publicKey } = useWallet();
+  const { isDemoMode } = useDemo();
   const [positions, setPositions] = useState<TokenPosition[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!publicKey) {
+    if (!publicKey && !isDemoMode) {
       setPositions([]);
       return;
     }
-    fetchPositions(publicKey);
+    
+    if (isDemoMode || publicKey) {
+      fetchPositions(publicKey);
+    }
     
     // Refresh every 60 seconds to avoid rate limiting on public mainnet RPC
     const interval = setInterval(() => {
-      fetchPositions(publicKey);
+      if (isDemoMode || publicKey) {
+        fetchPositions(publicKey);
+      }
     }, 60000);
     
     return () => clearInterval(interval);
-  }, [publicKey]);
+  }, [publicKey, isDemoMode]);
 
-  const fetchPositions = async (pk: PublicKey) => {
+  const fetchPositions = async (pk: PublicKey | null) => {
     setLoading(true);
     try {
       // Use devnet for demo - fetch real tokens from user's devnet wallet
       const rpcUrl = 'https://api.devnet.solana.com';
-      const walletAddress = pk.toBase58();
+      const walletAddress = isDemoMode ? (pk?.toBase58() || 'DEMO_MODE') : pk?.toBase58();
       console.log('🪙 Demo Mode: Fetching your devnet token positions');
+      
+      // In demo mode, skip the actual fetch or return empty
+      if (isDemoMode && !pk) {
+        setPositions([]);
+        return;
+      }
       
       const response = await fetch(rpcUrl, {
         method: 'POST',
@@ -78,5 +91,5 @@ export function useWalletPositions() {
     }
   };
 
-  return { positions, loading, refetch: () => publicKey && fetchPositions(publicKey) };
+  return { positions, loading, refetch: () => (isDemoMode || publicKey) && fetchPositions(publicKey) };
 }

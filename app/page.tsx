@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useKaminoPositions } from "@/hooks/useKaminoPositions";
+import { useDemo } from "@/contexts/DemoContext";
 import PositionCard from "@/components/PositionCard";
 import dynamic from "next/dynamic";
 const ArgusChatPanel = dynamic(() => import("@/components/ArgusChatPanel"), {
@@ -84,12 +85,133 @@ const Sidebar = ({
 
 export default function Home() {
   const { connected, disconnect, publicKey, select, wallets } = useWallet();
+  const { isDemoMode, enableDemoMode, disableDemoMode, demoPublicKey } =
+    useDemo();
   const { positions: kaminoPositions, loading: kaminoLoading } =
     useKaminoPositions();
   const [activeNav, setActiveNav] = useState<string>("landing");
   const [isChatClosed, setIsChatClosed] = useState<boolean>(false);
   const [simulatedDrop, setSimulatedDrop] = useState<number>(20);
   const [confirmSubmitted, setConfirmSubmitted] = useState<boolean>(false);
+  const [alertThreshold, setAlertThreshold] = useState<number>(1.6);
+  const [emailAlerts, setEmailAlerts] = useState<boolean>(true);
+  const [browserAlerts, setBrowserAlerts] = useState<boolean>(true);
+  const [telegramConnected, setTelegramConnected] = useState<boolean>(false);
+  const [autoProtectEnabled, setAutoProtectEnabled] = useState<boolean>(false);
+  const [autoProtectThreshold, setAutoProtectThreshold] =
+    useState<string>("1.20");
+  const [autoProtectMaxRepay, setAutoProtectMaxRepay] =
+    useState<string>("$2,000 USDC");
+  const [autoProtectTargetHF, setAutoProtectTargetHF] =
+    useState<string>("1.60");
+  const [settingsSaved, setSettingsSaved] = useState<boolean>(false);
+  const [savedSettings, setSavedSettings] = useState({
+    alertThreshold: 1.6,
+    emailAlerts: true,
+    browserAlerts: true,
+    telegramConnected: false,
+    autoProtectEnabled: false,
+    autoProtectThreshold: "1.20",
+    autoProtectMaxRepay: "$2,000 USDC",
+    autoProtectTargetHF: "1.60",
+  });
+  const [historyFilter, setHistoryFilter] = useState<"all" | "auto" | "manual">(
+    "all",
+  );
+
+  const historyData = [
+    {
+      date: "Apr 14",
+      time: "03:14 AM",
+      type: "Auto Repay",
+      amount: "$2,000 USDC",
+      beforeHF: "1.15",
+      afterHF: "1.52",
+      fee: "$5.00",
+      txText: "View on Solscan",
+      txUrl: "https://solscan.io",
+      category: "auto",
+    },
+    {
+      date: "Apr 12",
+      time: "11:42 AM",
+      type: "Manual Repay",
+      amount: "$1,200 USDC",
+      beforeHF: "1.28",
+      afterHF: "1.61",
+      fee: "$3.00",
+      txText: "View on Solscan",
+      txUrl: "https://solscan.io",
+      category: "manual",
+    },
+    {
+      date: "Apr 9",
+      time: "06:28 PM",
+      type: "Auto Repay",
+      amount: "$3,500 USDC",
+      beforeHF: "1.11",
+      afterHF: "1.68",
+      fee: "$8.75",
+      txText: "View on Solscan",
+      txUrl: "https://solscan.io",
+      category: "auto",
+    },
+  ];
+
+  const filteredHistory = historyData.filter((item) =>
+    historyFilter === "all" ? true : item.category === historyFilter,
+  );
+
+  const handleSaveSettings = useCallback(() => {
+    setSavedSettings({
+      alertThreshold,
+      emailAlerts,
+      browserAlerts,
+      telegramConnected,
+      autoProtectEnabled,
+      autoProtectThreshold,
+      autoProtectMaxRepay,
+      autoProtectTargetHF,
+    });
+    setSettingsSaved(true);
+    window.setTimeout(() => setSettingsSaved(false), 2000);
+  }, [
+    alertThreshold,
+    emailAlerts,
+    browserAlerts,
+    telegramConnected,
+    autoProtectEnabled,
+    autoProtectThreshold,
+    autoProtectMaxRepay,
+    autoProtectTargetHF,
+  ]);
+
+  const handleHistoryFilter = useCallback(
+    (filter: "all" | "auto" | "manual") => setHistoryFilter(filter),
+    [],
+  );
+
+  // Treat demo mode as connected
+  const isActive = connected || isDemoMode;
+
+  const thresholdZone =
+    alertThreshold <= 1.5
+      ? "risk"
+      : alertThreshold <= 2.0
+        ? "warning"
+        : "early";
+  const thresholdZoneColor =
+    thresholdZone === "risk"
+      ? "#E8A020"
+      : thresholdZone === "warning"
+        ? "#E8A020"
+        : "#22C55E";
+  const thresholdZoneLabel =
+    thresholdZone === "risk"
+      ? "Risky threshold — act quickly."
+      : thresholdZone === "warning"
+        ? "Early warning — you'll get more frequent alerts, but you'll always have time to act."
+        : "Early warning — you have more cushion before risk.";
 
   useEffect(() => {
     if (activeNav !== "confirm-tx") {
@@ -149,7 +271,9 @@ export default function Home() {
 
   const truncatedAddress = publicKey
     ? `${publicKey.toString().slice(0, 6)}...${publicKey.toString().slice(-4)}`
-    : null;
+    : isDemoMode
+      ? `${demoPublicKey.slice(0, 6)}...${demoPublicKey.slice(-4)}`
+      : null;
 
   // Confirm TX calculations
   const repayAmount = 1500;
@@ -157,10 +281,14 @@ export default function Home() {
   const beforeDebt = simulatedPosition?.borrowValue || 5259;
   const beforeCollateral = simulatedPosition?.collateralValue || 8280;
   const beforeHF = simulatedPosition?.healthFactor || 1.31;
-  const beforeLiqPrice = parseFloat((((beforeDebt / beforeCollateral) * currentPrice)).toFixed(2));
+  const beforeLiqPrice = parseFloat(
+    ((beforeDebt / beforeCollateral) * currentPrice).toFixed(2),
+  );
   const afterDebt = beforeDebt - repayAmount;
   const afterHF = parseFloat((beforeCollateral / afterDebt).toFixed(2));
-  const afterLiqPrice = parseFloat((((afterDebt / beforeCollateral) * currentPrice)).toFixed(2));
+  const afterLiqPrice = parseFloat(
+    ((afterDebt / beforeCollateral) * currentPrice).toFixed(2),
+  );
   const totalDebtBefore = 6259; // hardcoded to match
   const totalDebtAfter = 4759;
 
@@ -178,8 +306,9 @@ export default function Home() {
 
   const handleDisconnect = useCallback(() => {
     disconnect();
+    disableDemoMode();
     setActiveNav("landing");
-  }, [disconnect]);
+  }, [disconnect, disableDemoMode]);
 
   const handlePhantomConnect = useCallback(() => {
     const phantomWallet = wallets.find((w) => w.adapter.name === "Phantom");
@@ -195,8 +324,13 @@ export default function Home() {
     }
   }, [wallets, select]);
 
+  const handleDemoMode = useCallback(() => {
+    enableDemoMode();
+    setActiveNav("dashboard");
+  }, [enableDemoMode]);
+
   // Dashboard - Connected + Dashboard View
-  if (connected && activeNav === "dashboard") {
+  if (isActive && activeNav === "dashboard") {
     const overallRiskStatus = kaminoPositions.every(
       (p) => p.riskStatus === "safe",
     )
@@ -398,7 +532,7 @@ export default function Home() {
           <div
             className={`${isChatClosed ? "hidden" : "w-[45%]"} bg-linear-to-b from-slate-900/50 to-slate-950/50 border-l border-slate-800 flex flex-col sticky top-0 h-screen transition-all duration-300`}
           >
-            {connected && activeNav === "dashboard" ? (
+            {isActive && activeNav === "dashboard" ? (
               <ArgusChatPanel
                 isCollapsible={true}
                 isCollapsed={false}
@@ -427,7 +561,7 @@ export default function Home() {
   }
 
   // Full-screen AI Chat View
-  if (connected && activeNav === "ai-chat") {
+  if (isActive && activeNav === "ai-chat") {
     return (
       <div className="min-h-screen flex bg-[#0A0A0F]">
         <Sidebar
@@ -475,7 +609,7 @@ export default function Home() {
   }
 
   // Simulator Screen
-  if (connected && activeNav === "simulator") {
+  if (isActive && activeNav === "simulator") {
     return (
       <div className="min-h-screen flex bg-[#0A0A0F]">
         <Sidebar
@@ -527,7 +661,9 @@ export default function Home() {
                     </div>
                     <div className="inline-flex items-center gap-2 rounded-full bg-[#0F131A] px-3 py-2 text-sm text-slate-300 border border-slate-800">
                       <span>Simulating:</span>
-                      <strong className="text-white">mSOL / USDC — Kamino</strong>
+                      <strong className="text-white">
+                        mSOL / USDC — Kamino
+                      </strong>
                     </div>
                   </div>
                   <div className="text-right">
@@ -587,13 +723,15 @@ export default function Home() {
                         Simulation Results
                       </p>
                       <div className="mt-3 flex items-center gap-3">
-                        <span className={`text-4xl font-bold ${
-                          simulatedStatus === "safe"
-                            ? "text-white"
-                            : simulatedStatus === "caution"
-                              ? "text-amber-300"
-                              : "text-red-400"
-                        }`}>
+                        <span
+                          className={`text-4xl font-bold ${
+                            simulatedStatus === "safe"
+                              ? "text-white"
+                              : simulatedStatus === "caution"
+                                ? "text-amber-300"
+                                : "text-red-400"
+                          }`}
+                        >
                           {simulatedHealthFactor.toFixed(2)}
                         </span>
                         <span
@@ -620,7 +758,7 @@ export default function Home() {
                             ${simulatedCollateralValue.toFixed(2)}
                           </strong>
                         </div>
-                              <div className="flex justify-between mb-2">
+                        <div className="flex justify-between mb-2">
                           <span>New LTV</span>
                           <strong
                             className={
@@ -713,7 +851,8 @@ export default function Home() {
                         Protect My Position →
                       </button>
                       <p className="text-xs text-slate-500 mt-2 text-center">
-                        Returns you to Confirm Tx to review Argus's recommendation.
+                        Returns you to Confirm Tx to review Argus's
+                        recommendation.
                       </p>
                     </div>
                   )}
@@ -727,7 +866,7 @@ export default function Home() {
   }
 
   // Confirm Transaction Screen
-  if (connected && activeNav === "confirm-tx") {
+  if (isActive && activeNav === "confirm-tx") {
     return (
       <div className="min-h-screen flex bg-[#0A0A0F]">
         <Sidebar
@@ -778,175 +917,213 @@ export default function Home() {
                 <div className="grid gap-6 xl:grid-cols-[1fr_0.86fr]">
                   <div className="space-y-6">
                     <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6 shadow-[0_0_40px_rgba(0,229,255,0.08)]">
-                    <div className="flex items-start gap-4">
-                      <div className="mt-1 rounded-2xl bg-cyan-500/10 p-3 text-cyan-300">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          className="h-6 w-6"
-                        >
-                          <path d="M12 2L4 5v6c0 5.25 3.8 10.74 8 12 4.2-1.26 8-6.75 8-12V5l-8-3z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm uppercase tracking-[0.35em] text-cyan-300 mb-2">
-                          Repay to protect your position
-                        </p>
-                        <h2 className="text-xl font-semibold text-white">
-                          mSOL / USDC · Kamino Finance
-                        </h2>
-                        <div className="mt-4 rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
-                          You are repaying <span className="text-white font-semibold">$1,500 USDC</span> from your wallet to your Kamino mSOL/USDC loan. This brings your health factor from the caution zone into the safe zone.
+                      <div className="flex items-start gap-4">
+                        <div className="mt-1 rounded-2xl bg-cyan-500/10 p-3 text-cyan-300">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            className="h-6 w-6"
+                          >
+                            <path d="M12 2L4 5v6c0 5.25 3.8 10.74 8 12 4.2-1.26 8-6.75 8-12V5l-8-3z" />
+                          </svg>
                         </div>
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.35em] text-cyan-300 mb-2">
+                            Repay to protect your position
+                          </p>
+                          <h2 className="text-xl font-semibold text-white">
+                            mSOL / USDC · Kamino Finance
+                          </h2>
+                          <div className="mt-4 rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
+                            You are repaying{" "}
+                            <span className="text-white font-semibold">
+                              $1,500 USDC
+                            </span>{" "}
+                            from your wallet to your Kamino mSOL/USDC loan. This
+                            brings your health factor from the caution zone into
+                            the safe zone.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                      <div className="mb-4 text-xs uppercase tracking-[0.35em] text-slate-500">
+                        Before & After
+                      </div>
+                      <div className="grid gap-4 text-sm text-slate-300">
+                        <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
+                          <span className="text-slate-500">Health factor</span>
+                          <span className="text-amber-300">
+                            {beforeHF.toFixed(2)}
+                          </span>
+                          <span className="text-emerald-300 font-semibold">
+                            {afterHF.toFixed(2)} ✓
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
+                          <span className="text-slate-500">Total debt</span>
+                          <span>${totalDebtBefore}</span>
+                          <span>${totalDebtAfter}</span>
+                        </div>
+                        <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
+                          <span className="text-slate-500">Liq price</span>
+                          <span className="text-amber-300">
+                            ${beforeLiqPrice.toFixed(2)}
+                          </span>
+                          <span className="text-emerald-300">
+                            ${afterLiqPrice.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4">
+                          <span className="text-slate-500">Risk status</span>
+                          <span className="text-amber-300">Caution</span>
+                          <span className="text-emerald-300">Safe</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                      <div className="mb-4 text-xs uppercase tracking-[0.35em] text-slate-500">
+                        Transaction cost breakdown
+                      </div>
+                      <div className="grid gap-4 text-sm text-slate-300">
+                        <div className="flex justify-between border-b border-slate-800 pb-3">
+                          <span>Repay amount</span>
+                          <span>$1,500.00 USDC</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-800 pb-3">
+                          <div>
+                            <p>Argus fee</p>
+                            <p className="text-xs text-slate-500">
+                              0.25% of repay amount
+                            </p>
+                          </div>
+                          <span>$3.75 USDC</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-800 pb-3">
+                          <div>
+                            <p>Solana network fee</p>
+                            <p className="text-xs text-slate-500">
+                              ~0.000005 SOL / $0.001
+                            </p>
+                          </div>
+                          <span>Estimated</span>
+                        </div>
+                        <div className="flex justify-between pt-3 text-white text-lg font-semibold">
+                          <span>Total cost</span>
+                          <span>$1,503.75 USDC</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6 space-y-4">
+                      <div className="rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
+                        <p className="font-semibold text-white">
+                          🔒 Argus uses a limited session key
+                        </p>
+                        <p className="mt-2 text-slate-400">
+                          It can only repay loans on Kamino, never send funds to
+                          external wallets. Your session cap is strictly
+                          enforced.
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-[#0F131A] border border-amber-500/20 p-4 text-sm text-amber-300">
+                        <p className="font-semibold">
+                          ⚠️ This action cannot be undone once submitted to
+                          Solana.
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
-                    <div className="mb-4 text-xs uppercase tracking-[0.35em] text-slate-500">
-                      Before & After
-                    </div>
-                    <div className="grid gap-4 text-sm text-slate-300">
-                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
-                        <span className="text-slate-500">Health factor</span>
-                        <span className="text-amber-300">{beforeHF.toFixed(2)}</span>
-                        <span className="text-emerald-300 font-semibold">{afterHF.toFixed(2)} ✓</span>
-                      </div>
-                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
-                        <span className="text-slate-500">Total debt</span>
-                        <span>${totalDebtBefore}</span>
-                        <span>${totalDebtAfter}</span>
-                      </div>
-                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
-                        <span className="text-slate-500">Liq price</span>
-                        <span className="text-amber-300">${beforeLiqPrice.toFixed(2)}</span>
-                        <span className="text-emerald-300">${afterLiqPrice.toFixed(2)}</span>
-                      </div>
-                      <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4">
-                        <span className="text-slate-500">Risk status</span>
-                        <span className="text-amber-300">Caution</span>
-                        <span className="text-emerald-300">Safe</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
-                    <div className="mb-4 text-xs uppercase tracking-[0.35em] text-slate-500">
-                      Transaction cost breakdown
-                    </div>
-                    <div className="grid gap-4 text-sm text-slate-300">
-                      <div className="flex justify-between border-b border-slate-800 pb-3">
-                        <span>Repay amount</span>
-                        <span>$1,500.00 USDC</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-800 pb-3">
+                    <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-slate-300">
+                      <div className="flex items-center justify-between mb-3">
                         <div>
-                          <p>Argus fee</p>
-                          <p className="text-xs text-slate-500">0.25% of repay amount</p>
+                          <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                            Active position
+                          </p>
+                          <p className="text-lg font-semibold text-white">
+                            mSOL / USDC
+                          </p>
                         </div>
-                        <span>$3.75 USDC</span>
+                        <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">
+                          Caution
+                        </span>
                       </div>
-                      <div className="flex justify-between border-b border-slate-800 pb-3">
-                        <div>
-                          <p>Solana network fee</p>
-                          <p className="text-xs text-slate-500">~0.000005 SOL / $0.001</p>
+                      <div className="space-y-3 text-sm text-slate-300">
+                        <div className="flex justify-between">
+                          <span>Collateral</span>
+                          <strong>${beforeCollateral.toFixed(0)}</strong>
                         </div>
-                        <span>Estimated</span>
-                      </div>
-                      <div className="flex justify-between pt-3 text-white text-lg font-semibold">
-                        <span>Total cost</span>
-                        <span>$1,503.75 USDC</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6 space-y-4">
-                    <div className="rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
-                      <p className="font-semibold text-white">🔒 Argus uses a limited session key</p>
-                      <p className="mt-2 text-slate-400">
-                        It can only repay loans on Kamino, never send funds to external wallets. Your session cap is strictly enforced.
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-[#0F131A] border border-amber-500/20 p-4 text-sm text-amber-300">
-                      <p className="font-semibold">⚠️ This action cannot be undone once submitted to Solana.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
-                  <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-slate-300">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
-                          Active position
-                        </p>
-                        <p className="text-lg font-semibold text-white">
-                          mSOL / USDC
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">
-                        Caution
-                      </span>
-                    </div>
-                    <div className="space-y-3 text-sm text-slate-300">
-                      <div className="flex justify-between">
-                        <span>Collateral</span>
-                        <strong>${beforeCollateral.toFixed(0)}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Borrow</span>
-                        <strong>${beforeDebt.toFixed(0)}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Current HF</span>
-                        <strong>{beforeHF.toFixed(2)}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Liq price</span>
-                        <strong>${beforeLiqPrice.toFixed(2)}</strong>
+                        <div className="flex justify-between">
+                          <span>Borrow</span>
+                          <strong>${beforeDebt.toFixed(0)}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Current HF</span>
+                          <strong>{beforeHF.toFixed(2)}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Liq price</span>
+                          <strong>${beforeLiqPrice.toFixed(2)}</strong>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="sticky top-8 rounded-3xl border border-slate-800 bg-[#111118] p-6 shadow-[0_0_40px_rgba(0,229,255,0.06)]">
-                <div className="mb-6 rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-sm text-slate-300">
-                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
-                    Transaction summary
-                  </p>
-                  <p className="text-white">Repaying $1,500 USDC · Health factor {beforeHF.toFixed(2)} → {afterHF.toFixed(2)}</p>
+                <div className="sticky top-8 rounded-3xl border border-slate-800 bg-[#111118] p-6 shadow-[0_0_40px_rgba(0,229,255,0.06)]">
+                  <div className="mb-6 rounded-3xl border border-slate-800 bg-[#0F131A] p-5 text-sm text-slate-300">
+                    <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
+                      Transaction summary
+                    </p>
+                    <p className="text-white">
+                      Repaying $1,500 USDC · Health factor {beforeHF.toFixed(2)}{" "}
+                      → {afterHF.toFixed(2)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setConfirmSubmitted(true)}
+                    className="mb-3 flex w-full items-center justify-center gap-2 rounded-3xl bg-[#00E5FF] px-4 py-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 transition"
+                  >
+                    <span>🔒</span>
+                    Confirm — Repay $1,500 USDC
+                  </button>
+                  <button
+                    onClick={() => setActiveNav("simulator")}
+                    className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4 text-sm text-slate-300 hover:bg-slate-900 transition"
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <button
-                  onClick={() => setConfirmSubmitted(true)}
-                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-3xl bg-[#00E5FF] px-4 py-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 transition"
-                >
-                  <span>🔒</span>
-                  Confirm — Repay $1,500 USDC
-                </button>
-                <button
-                  onClick={() => setActiveNav("simulator")}
-                  className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4 text-sm text-slate-300 hover:bg-slate-900 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
+              </>
             ) : (
               <div className="grid gap-6 xl:grid-cols-[1fr_0.86fr]">
                 <div className="space-y-6">
                   <div className="rounded-3xl border border-slate-800 bg-[#111118] p-10 text-center shadow-[0_0_40px_rgba(0,229,255,0.08)]">
                     <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-300">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-8 w-8">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="h-8 w-8"
+                      >
                         <path d="M9 12.5l2 2 4-4" />
                       </svg>
                     </div>
-                    <h2 className="text-3xl font-semibold text-white mb-2">Position Protected</h2>
+                    <h2 className="text-3xl font-semibold text-white mb-2">
+                      Position Protected
+                    </h2>
                     <p className="mx-auto max-w-xl text-slate-400 mb-6">
-                      Your health factor is now {afterHF.toFixed(2)}. Argus is watching your position.
+                      Your health factor is now {afterHF.toFixed(2)}. Argus is
+                      watching your position.
                     </p>
-                    <p className="text-5xl font-bold text-emerald-300 mb-2">{afterHF.toFixed(2)}</p>
+                    <p className="text-5xl font-bold text-emerald-300 mb-2">
+                      {afterHF.toFixed(2)}
+                    </p>
                     <span className="inline-flex rounded-full bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300">
                       Safe
                     </span>
@@ -958,7 +1135,10 @@ export default function Home() {
                     <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
                       Transaction summary
                     </p>
-                    <p className="text-white">Your repay completed. Health factor is now {afterHF.toFixed(2)} and your position is protected.</p>
+                    <p className="text-white">
+                      Your repay completed. Health factor is now{" "}
+                      {afterHF.toFixed(2)} and your position is protected.
+                    </p>
                   </div>
                   <button
                     onClick={() => setActiveNav("dashboard")}
@@ -981,8 +1161,437 @@ export default function Home() {
     );
   }
 
+  // Alert Settings Screen
+  if (isActive && activeNav === "alert-settings") {
+    return (
+      <div className="min-h-screen flex bg-[#0A0A0F]">
+        <Sidebar
+          activeNav={activeNav}
+          setActiveNav={setActiveNav}
+          onDisconnect={handleDisconnect}
+          showDisconnect={true}
+        />
+
+        <div className="flex-1 overflow-auto px-8 py-8">
+          <div className="mx-auto max-w-6xl space-y-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
+                    Alert Settings
+                  </p>
+                  <h1 className="text-4xl font-bold text-white">
+                    Configure how Argus protects and notifies you
+                  </h1>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-slate-900 px-4 py-2 text-sm text-slate-300">
+                    {truncatedAddress}
+                  </div>
+                  <button
+                    onClick={handleDisconnect}
+                    className="rounded-full border border-slate-700 bg-[#111118] px-4 py-2 text-sm text-slate-300 hover:border-slate-600 hover:text-white transition"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+                <div className="space-y-6">
+                  <section className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-2xl font-semibold text-white">
+                          Alert threshold
+                        </h2>
+                        <p className="text-slate-400 text-sm max-w-2xl">
+                          Argus will notify you if your overall health factor
+                          drops below this value.
+                        </p>
+                      </div>
+                      <div className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+                        {alertThreshold.toFixed(2)} HF
+                      </div>
+                    </div>
+
+                    <div className="mt-6 space-y-4">
+                      <input
+                        type="range"
+                        min="1.1"
+                        max="2.5"
+                        step="0.05"
+                        value={alertThreshold}
+                        onChange={(e) =>
+                          setAlertThreshold(parseFloat(e.target.value))
+                        }
+                        className="w-full h-2 rounded-full accent-[#1E88E5]"
+                        style={{
+                          background: `linear-gradient(90deg, #1E88E5 ${((alertThreshold - 1.1) / 1.4) * 100}%, #334155 ${((alertThreshold - 1.1) / 1.4) * 100}%)`,
+                        }}
+                      />
+                      <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-4">
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: thresholdZoneColor }}
+                        >
+                          {thresholdZoneLabel}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-2">
+                          Set this threshold to receive alerts before your
+                          position becomes unsafe.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                    <div className="flex items-center justify-between gap-4 mb-6">
+                      <div>
+                        <h2 className="text-2xl font-semibold text-white">
+                          Notification channels
+                        </h2>
+                        <p className="text-slate-400 text-sm">
+                          Choose how Argus alerts you when your health factor is
+                          at risk.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            Email alerts
+                          </p>
+                          <p className="text-slate-500 text-xs">
+                            Get notified at user@example.com when the threshold
+                            is crossed
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setEmailAlerts(!emailAlerts)}
+                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${emailAlerts ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-300"}`}
+                        >
+                          {emailAlerts ? "On" : "Off"}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            Browser notifications
+                          </p>
+                          <p className="text-slate-500 text-xs">
+                            Push alerts when the tab is open
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setBrowserAlerts(!browserAlerts)}
+                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${browserAlerts ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-300"}`}
+                        >
+                          {browserAlerts ? "On" : "Off"}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            Telegram bot
+                          </p>
+                          <p className="text-slate-500 text-xs">
+                            Not connected — tap to set up
+                          </p>
+                        </div>
+                        <button
+                          onClick={() =>
+                            setTelegramConnected(!telegramConnected)
+                          }
+                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${telegramConnected ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-300"}`}
+                        >
+                          {telegramConnected ? "Connected" : "Connect"}
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                    <div className="flex items-center justify-between gap-4 mb-6">
+                      <div>
+                        <h2 className="text-2xl font-semibold text-white">
+                          Auto-Protect
+                        </h2>
+                        <p className="text-slate-400 text-sm">
+                          Automatically repay a portion of your debt when your
+                          health factor drops.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setAutoProtectEnabled(!autoProtectEnabled)
+                        }
+                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${autoProtectEnabled ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-300"}`}
+                      >
+                        {autoProtectEnabled ? "On" : "Off"}
+                      </button>
+                    </div>
+
+                    {autoProtectEnabled ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-semibold text-slate-200 mb-2 block">
+                            Trigger when health factor drops below
+                          </label>
+                          <input
+                            value={autoProtectThreshold}
+                            onChange={(e) =>
+                              setAutoProtectThreshold(e.target.value)
+                            }
+                            className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-3 text-white text-sm outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-slate-200 mb-2 block">
+                            Maximum repay amount per action
+                          </label>
+                          <input
+                            value={autoProtectMaxRepay}
+                            onChange={(e) =>
+                              setAutoProtectMaxRepay(e.target.value)
+                            }
+                            className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-3 text-white text-sm outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-slate-200 mb-2 block">
+                            Target health factor after repay
+                          </label>
+                          <input
+                            value={autoProtectTargetHF}
+                            onChange={(e) =>
+                              setAutoProtectTargetHF(e.target.value)
+                            }
+                            className="w-full rounded-3xl border border-slate-800 bg-[#0F131A] px-4 py-3 text-white text-sm outline-none focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-4 text-sm text-slate-400">
+                        Auto-Protect is currently turned off.
+                      </div>
+                    )}
+
+                    <div className="mt-6 flex flex-col gap-3">
+                      {settingsSaved && (
+                        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                          Settings saved.
+                        </div>
+                      )}
+                      <button
+                        onClick={handleSaveSettings}
+                        className="w-full rounded-3xl bg-[#1E88E5] px-5 py-3 text-sm font-semibold text-white hover:bg-[#1669c1] transition"
+                      >
+                        Save settings
+                      </button>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-6 text-slate-300">
+                    <p className="text-sm font-semibold text-white mb-3">
+                      Security note
+                    </p>
+                    <p className="text-sm leading-7 text-slate-400">
+                      Argus uses a limited session key — it can only repay
+                      loans, never send funds to external wallets, and your cap
+                      is strictly enforced.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // History Screen
+  if (isActive && activeNav === "history") {
+    return (
+      <div className="min-h-screen flex bg-[#0A0A0F]">
+        <Sidebar
+          activeNav={activeNav}
+          setActiveNav={setActiveNav}
+          onDisconnect={handleDisconnect}
+          showDisconnect={true}
+        />
+
+        <div className="flex-1 overflow-auto px-8 py-8">
+          <div className="mx-auto max-w-6xl space-y-8">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-2">
+                  Transaction History
+                </p>
+                <h1 className="text-4xl font-bold text-white">
+                  Everything Argus has done to protect your positions
+                </h1>
+              </div>
+              <div className="text-sm text-slate-500">Last 30 days</div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-4">
+                  Total protected
+                </p>
+                <p className="text-4xl font-black text-white mb-2">$6,700</p>
+                <p className="text-slate-400 text-sm">3 actions taken</p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-[#0B1F24] p-6 shadow-[0_0_40px_rgba(20,180,180,0.12)]">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-4">
+                  Liquidations avoided
+                </p>
+                <p className="text-4xl font-black text-teal-300 mb-2">2</p>
+                <p className="text-slate-400 text-sm">
+                  ~$1,640 in penalties saved
+                </p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-500 mb-4">
+                  Total fees paid
+                </p>
+                <p className="text-4xl font-black text-white mb-2">$16.75</p>
+                <p className="text-slate-400 text-sm">0.25% per action</p>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-[#111118] p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => handleHistoryFilter("all")}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${historyFilter === "all" ? "bg-[#1E88E5] text-white" : "bg-slate-900 text-slate-400 hover:bg-slate-800"}`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => handleHistoryFilter("auto")}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${historyFilter === "auto" ? "bg-[#1E88E5] text-white" : "bg-slate-900 text-slate-400 hover:bg-slate-800"}`}
+                  >
+                    Auto
+                  </button>
+                  <button
+                    onClick={() => handleHistoryFilter("manual")}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${historyFilter === "manual" ? "bg-[#1E88E5] text-white" : "bg-slate-900 text-slate-400 hover:bg-slate-800"}`}
+                  >
+                    Manual
+                  </button>
+                </div>
+                <div className="text-sm text-slate-500">
+                  {historyFilter === "all"
+                    ? "Showing all transactions"
+                    : `Showing ${historyFilter} transactions`}
+                </div>
+              </div>
+
+              <div className="mt-6 overflow-x-auto">
+                <div style={{ minWidth: 920 }}>
+                  <div className="grid grid-cols-[1.4fr_0.9fr_0.95fr_1fr_0.75fr_1fr] gap-4 rounded-t-3xl border-b border-slate-800 bg-[#0B131A] px-6 py-4 text-left text-xs uppercase tracking-[0.35em] text-slate-500">
+                    <span>Date & Time</span>
+                    <span>Action</span>
+                    <span>Amount</span>
+                    <span>Health Factor</span>
+                    <span>Fee</span>
+                    <span>TX</span>
+                  </div>
+
+                  {filteredHistory.length > 0 ? (
+                    filteredHistory.map((item, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-[1.4fr_0.9fr_0.95fr_1fr_0.75fr_1fr] gap-4 border-b border-slate-800 px-6 py-4 text-sm text-slate-300"
+                      >
+                        <div>
+                          <p className="font-semibold text-white">
+                            {item.date}
+                          </p>
+                          <p className="text-slate-500 text-xs mt-1">
+                            {item.time}
+                          </p>
+                        </div>
+                        <div>
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.category === "auto" ? "bg-teal-500/10 text-teal-300 border border-teal-500/15" : "bg-slate-900 text-slate-300 border border-slate-700"}`}
+                          >
+                            {item.type}
+                          </span>
+                        </div>
+                        <div className="font-semibold text-white">
+                          {item.amount}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            style={{
+                              color:
+                                parseFloat(item.beforeHF) < 1.2
+                                  ? "#e04060"
+                                  : "#e8a020",
+                            }}
+                          >
+                            {item.beforeHF}
+                          </span>
+                          <span className="text-slate-500">→</span>
+                          <span style={{ color: "#48c78e" }}>
+                            {item.afterHF}
+                          </span>
+                        </div>
+                        <div>{item.fee}</div>
+                        <div>
+                          <a
+                            href={item.txUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#1E88E5] hover:text-[#1669c1]"
+                          >
+                            {item.txText} ↗
+                          </a>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-b-3xl border border-slate-800 border-t-0 bg-[#0F131A] px-6 py-20 text-center text-slate-400">
+                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-slate-400">
+                        <span className="text-2xl">👁️</span>
+                      </div>
+                      <p className="text-lg font-semibold text-white mb-2">
+                        Nothing here yet
+                      </p>
+                      <p className="text-slate-500 mb-5">
+                        Your transaction activity will appear here once Argus
+                        takes action.
+                      </p>
+                      <button
+                        onClick={() => setActiveNav("dashboard")}
+                        className="rounded-full bg-[#1E88E5] px-5 py-3 text-sm font-semibold text-white hover:bg-[#1669c1] transition"
+                      >
+                        Go to Dashboard →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Connected Welcome State
-  if (connected && activeNav === "landing") {
+  if (isActive && activeNav === "landing") {
     return (
       <div className="min-h-screen flex bg-[#0A0A0F]">
         <Sidebar
@@ -1021,7 +1630,7 @@ export default function Home() {
                   {truncatedAddress}
                 </p>
                 <p className="text-slate-500 text-xs mt-3 break-all">
-                  {publicKey?.toString()}
+                  {isDemoMode ? demoPublicKey : publicKey?.toString()}
                 </p>
               </div>
             </div>
@@ -1177,6 +1786,18 @@ export default function Home() {
                     d="M9 5l7 7-7 7"
                   />
                 </svg>
+              </button>
+
+              <button
+                onClick={handleDemoMode}
+                className="px-4 py-2 text-xs font-medium border rounded-lg transition-all hover:scale-105"
+                style={{
+                  borderColor: "#1E1E2A",
+                  color: "#A0A3B1",
+                  backgroundColor: "transparent",
+                }}
+              >
+                Try Demo — no wallet needed
               </button>
             </div>
 

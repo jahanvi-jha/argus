@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useDemo } from '@/contexts/DemoContext';
 
 // 🚀 HACKATHON DEMO MODE - Simulated Kamino positions
 // Using mock data for demonstration purposes
-const DEMO_MODE = true;
 
 type RiskStatus = 'safe' | 'caution' | 'danger';
 
@@ -69,11 +69,13 @@ const MOCK_POSITIONS: KaminoPosition[] = [
 
 export const useKaminoPositions = () => {
   const { publicKey } = useWallet();
+  const { isDemoMode } = useDemo();
   const [positions, setPositions] = useState<KaminoPosition[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!publicKey) {
+    // When in demo mode or when publicKey is available, fetch data
+    if (!publicKey && !isDemoMode) {
       setPositions([]);
       return;
     }
@@ -81,7 +83,7 @@ export const useKaminoPositions = () => {
     const fetchKaminoData = async () => {
       setLoading(true);
       try {
-        const walletToFetch = publicKey.toBase58();
+        const walletToFetch = isDemoMode ? "DEMO_MODE" : publicKey?.toBase58();
         
         console.log('🚀 DEMO MODE: Using simulated Kamino position data');
         console.log('🔄 Fetching Kamino positions for:', walletToFetch);
@@ -112,7 +114,7 @@ export const useKaminoPositions = () => {
     const interval = setInterval(fetchKaminoData, 30000);
     return () => clearInterval(interval);
 
-  }, [publicKey]);
+  }, [publicKey, isDemoMode]);
 
   return { positions, loading };
 };

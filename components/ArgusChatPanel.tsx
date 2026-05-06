@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useKaminoPositions } from "@/hooks/useKaminoPositions";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useDemo } from "@/contexts/DemoContext";
 import ReactMarkdown from "react-markdown";
 const truncateAddress = (addr: string) =>
   `${addr.slice(0, 4)}...${addr.slice(-4)}`;
@@ -29,12 +30,18 @@ export default function ArgusChatPanel({
   onToggleCollapse = () => {},
 }: ArgusChatPanelProps) {
   const { publicKey } = useWallet();
+  const { isDemoMode, demoPublicKey } = useDemo();
   const { positions, loading } = useKaminoPositions();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+
+  // Determine which wallet address to use
+  const walletAddress = isDemoMode
+    ? demoPublicKey
+    : publicKey?.toBase58() || "Not Connected";
 
   // Prepare position data for system prompt
   const positionData = {
@@ -54,7 +61,7 @@ export default function ArgusChatPanel({
       interest_accrued_usd: p.interest_accrued_usd,
       interest_accruing_per_day_usd: p.interest_accruing_per_day_usd,
     })),
-    wallet: publicKey ? truncateAddress(publicKey.toBase58()) : "Not Connected",
+    wallet: truncateAddress(walletAddress),
     last_updated: new Date().toISOString(),
   };
 

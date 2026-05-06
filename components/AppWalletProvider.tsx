@@ -10,6 +10,7 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { FC, useMemo } from "react";
+import { DemoProvider } from "@/contexts/DemoContext";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -30,7 +31,9 @@ export const Wallet: FC<Props> = ({ children }) => {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect={true}>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        <WalletModalProvider>
+          <DemoProvider>{children}</DemoProvider>
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
