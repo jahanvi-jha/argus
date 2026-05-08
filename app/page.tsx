@@ -98,6 +98,8 @@ export default function Home() {
   const [browserAlerts, setBrowserAlerts] = useState<boolean>(true);
   const [telegramConnected, setTelegramConnected] = useState<boolean>(false);
   const [autoProtectEnabled, setAutoProtectEnabled] = useState<boolean>(false);
+  const [autoProtectTriggered, setAutoProtectTriggered] =
+    useState<boolean>(true);
   const [autoProtectThreshold, setAutoProtectThreshold] =
     useState<string>("1.20");
   const [autoProtectMaxRepay, setAutoProtectMaxRepay] =
@@ -293,6 +295,10 @@ export default function Home() {
   const totalDebtAfter = 4759;
 
   const handleDashboardAction = (action: string) => {
+    if (action === "history") {
+      setActiveNav("history");
+      return;
+    }
     if (action === "simulate") {
       setActiveNav("simulator");
       return;
@@ -340,6 +346,16 @@ export default function Home() {
         : "caution";
 
     const getRecommendation = () => {
+      if (autoProtectTriggered) {
+        return {
+          heading: "Argus protected you while you slept.",
+          body: "Your mSOL position dropped to 1.18 — inside the danger zone. Argus automatically repaid $1,200 USDC at 03:14 AM. Your health factor is now 1.52. No action needed.",
+          buttons: [
+            { label: "View transaction history", action: "history" },
+            { label: "Simulate a price drop", action: "simulate" },
+          ],
+        };
+      }
       if (overallRiskStatus === "safe") {
         return {
           heading: "You're in good shape tonight.",
@@ -442,6 +458,21 @@ export default function Home() {
               <p className="text-slate-500 text-xs mb-6">
                 Last checked 14s ago · Updates every 30s
               </p>
+
+              {autoProtectTriggered && (
+                <div className="rounded-lg p-4 border border-amber-500/30 bg-amber-500/10 mb-6 flex items-center justify-between">
+                  <p className="text-amber-400 text-sm font-medium">
+                    ⚡ Argus acted at 03:14 AM — Repaid $1,200 USDC. Health
+                    factor now 1.52.
+                  </p>
+                  <button
+                    onClick={() => setActiveNav("history")}
+                    className="text-amber-400 text-sm font-medium whitespace-nowrap ml-4 hover:text-amber-300 transition-colors"
+                  >
+                    View details →
+                  </button>
+                </div>
+              )}
 
               {isChatClosed && (
                 <button
@@ -1379,6 +1410,14 @@ export default function Home() {
                       <div className="rounded-3xl border border-slate-800 bg-[#0F131A] p-4 text-sm text-slate-400">
                         Auto-Protect is currently turned off.
                       </div>
+                    )}
+                    {autoProtectTriggered && (
+                      <p
+                        style={{ color: "#5A5E72", fontSize: "12px" }}
+                        className="mt-3"
+                      >
+                        Last triggered: May 3 at 03:14 AM — repaid $1,200 USDC
+                      </p>
                     )}
 
                     <div className="mt-6 flex flex-col gap-3">
