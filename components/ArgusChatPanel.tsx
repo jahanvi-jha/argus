@@ -37,6 +37,7 @@ export default function ArgusChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const autoProtectTriggered = true;
 
   // Determine which wallet address to use
   const walletAddress = isDemoMode
@@ -188,6 +189,43 @@ export default function ArgusChatPanel({
             ref={chatRef}
             className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
           >
+            {autoProtectTriggered && (
+              <div className="flex items-start">
+                <div className="flex flex-col items-center mr-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mb-1">
+                    <span className="text-blue-400">👁️</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Argus</span>
+                </div>
+                <div
+                  className="max-w-xl px-4 py-3 rounded-lg text-sm bg-slate-900 border border-slate-800"
+                  style={{ borderLeft: "3px solid #e04060" }}
+                >
+                  <p
+                    className="text-xs font-bold tracking-widest mb-2"
+                    style={{ color: "#e04060" }}
+                  >
+                    ARGUS ACTED
+                  </p>
+                  <p className="text-slate-100 leading-relaxed">
+                    Your mSOL health factor dropped to 1.18 at 03:14 AM — that's
+                    inside the danger zone. I automatically repaid $1,200 USDC
+                    on your behalf using your session key. Your health factor is
+                    now 1.52 and your position is safe. Your session key limits
+                    me to loan repayments only — I can never move funds to
+                    external wallets.
+                  </p>
+                  <a
+                    href="https://solscan.io"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block mt-3 px-3 py-1.5 rounded border border-slate-600 text-slate-300 text-xs hover:border-slate-400 hover:text-white transition-colors"
+                  >
+                    ↗ View on Solscan
+                  </a>
+                </div>
+              </div>
+            )}
             {messages.map((msg, i) => (
               <div
                 key={i}
