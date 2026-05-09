@@ -93,6 +93,7 @@ export default function Home() {
   const [isChatClosed, setIsChatClosed] = useState<boolean>(false);
   const [simulatedDrop, setSimulatedDrop] = useState<number>(20);
   const [confirmSubmitted, setConfirmSubmitted] = useState<boolean>(false);
+  const [isAddCollateral, setIsAddCollateral] = useState<boolean>(false);
   const [alertThreshold, setAlertThreshold] = useState<number>(1.6);
   const [emailAlerts, setEmailAlerts] = useState<boolean>(true);
   const [browserAlerts, setBrowserAlerts] = useState<boolean>(true);
@@ -221,6 +222,7 @@ export default function Home() {
   useEffect(() => {
     if (activeNav !== "confirm-tx") {
       setConfirmSubmitted(false);
+      setIsAddCollateral(false);
     }
   }, [activeNav]);
 
@@ -298,6 +300,24 @@ export default function Home() {
   const totalDebtAfter = 4759;
 
   const handleDashboardAction = (action: string) => {
+    // #region agent log
+    fetch("http://127.0.0.1:7435/ingest/18c5a4f5-d258-437b-87a3-44194075979e", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "509f24",
+      },
+      body: JSON.stringify({
+        sessionId: "509f24",
+        runId: "f18-dashboard",
+        hypothesisId: "H1",
+        location: "app/page.tsx:300",
+        message: "handleDashboardAction invoked",
+        data: { action, activeNav, confirmSubmitted, isAddCollateral },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     if (action === "history") {
       setActiveNav("history");
       return;
@@ -309,6 +329,30 @@ export default function Home() {
     if (action === "protect" || action === "repay") {
       setConfirmSubmitted(false);
       setActiveNav("confirm-tx");
+      return;
+    }
+    if (action === "collateral") {
+      // #region agent log
+      fetch("http://127.0.0.1:7435/ingest/18c5a4f5-d258-437b-87a3-44194075979e", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Debug-Session-Id": "509f24",
+        },
+        body: JSON.stringify({
+          sessionId: "509f24",
+          runId: "f18-dashboard",
+          hypothesisId: "H2",
+          location: "app/page.tsx:332",
+          message: "collateral action branch hit",
+          data: { action },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+      setConfirmSubmitted(false);
+      setActiveNav("confirm-tx");
+      setIsAddCollateral(true);
       return;
     }
   };
@@ -375,6 +419,7 @@ export default function Home() {
           buttons: [
             { label: "Protect this position", action: "protect" },
             { label: "Simulate a price drop", action: "simulate" },
+            { label: "Add Collateral →", action: "collateral" },
           ],
         };
       } else {
@@ -901,6 +946,24 @@ export default function Home() {
 
   // Confirm Transaction Screen
   if (isActive && activeNav === "confirm-tx") {
+    // #region agent log
+    fetch("http://127.0.0.1:7435/ingest/18c5a4f5-d258-437b-87a3-44194075979e", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "509f24",
+      },
+      body: JSON.stringify({
+        sessionId: "509f24",
+        runId: "f18-dashboard",
+        hypothesisId: "H3",
+        location: "app/page.tsx:935",
+        message: "confirm-tx render",
+        data: { isAddCollateral, confirmSubmitted, activeNav },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     return (
       <div className="min-h-screen flex bg-[#0A0A0F]">
         <Sidebar
@@ -926,14 +989,16 @@ export default function Home() {
                   </button>
                   <span className="text-slate-500">|</span>
                   <span className="uppercase tracking-[0.3em] text-slate-500">
-                    Confirm Transaction
+                    {isAddCollateral ? "Confirm Add Collateral" : "Confirm Transaction"}
                   </span>
                 </div>
                 <h1 className="mt-3 text-4xl font-bold text-white">
-                  Confirm Transaction
+                  {isAddCollateral ? "Confirm Add Collateral" : "Confirm Transaction"}
                 </h1>
                 <p className="mt-3 max-w-2xl text-slate-400">
-                  Review exactly what will happen before confirming.
+                  {isAddCollateral
+                    ? "Review exactly what will happen before adding collateral."
+                    : "Review exactly what will happen before confirming."}
                 </p>
               </div>
               <div className="flex items-center justify-between gap-4 rounded-3xl border border-slate-800 bg-[#111118] px-4 py-3 text-sm text-slate-300">
@@ -964,19 +1029,17 @@ export default function Home() {
                         </div>
                         <div>
                           <p className="text-sm uppercase tracking-[0.35em] text-cyan-300 mb-2">
-                            Repay to protect your position
+                            {isAddCollateral
+                              ? "Add collateral to protect your position"
+                              : "Repay to protect your position"}
                           </p>
                           <h2 className="text-xl font-semibold text-white">
                             mSOL / USDC · Kamino Finance
                           </h2>
                           <div className="mt-4 rounded-2xl bg-[#0F131A] border border-slate-800 p-4 text-sm text-slate-300">
-                            You are repaying{" "}
-                            <span className="text-white font-semibold">
-                              $1,500 USDC
-                            </span>{" "}
-                            from your wallet to your Kamino mSOL/USDC loan. This
-                            brings your health factor from the caution zone into
-                            the safe zone.
+                            {isAddCollateral
+                              ? "You are adding 0.5 SOL to your Kamino mSOL/USDC position. This brings your health factor from the caution zone into the safe zone."
+                              : "You are repaying $1,500 USDC from your wallet to your Kamino mSOL/USDC loan. This brings your health factor from the caution zone into the safe zone."}
                           </div>
                         </div>
                       </div>
@@ -989,28 +1052,19 @@ export default function Home() {
                       <div className="grid gap-4 text-sm text-slate-300">
                         <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
                           <span className="text-slate-500">Health factor</span>
-                          <span className="text-amber-300">
-                            {beforeHF.toFixed(2)}
-                          </span>
+                          <span className="text-amber-300">1.31</span>
                           <span className="text-emerald-300 font-semibold">
-                            {afterHF.toFixed(2)} ✓
+                            {isAddCollateral ? "1.74 ✓" : `${afterHF.toFixed(2)} ✓`}
                           </span>
                         </div>
                         <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
-                          <span className="text-slate-500">Total debt</span>
-                          <span>${totalDebtBefore}</span>
-                          <span>${totalDebtAfter}</span>
+                          <span className="text-slate-500">
+                            {isAddCollateral ? "Collateral" : "Total debt"}
+                          </span>
+                          <span>{isAddCollateral ? "$8,200" : `$${totalDebtBefore}`}</span>
+                          <span>{isAddCollateral ? "$8,290" : `$${totalDebtAfter}`}</span>
                         </div>
                         <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4 border-b border-slate-800 pb-4">
-                          <span className="text-slate-500">Liq price</span>
-                          <span className="text-amber-300">
-                            ${beforeLiqPrice.toFixed(2)}
-                          </span>
-                          <span className="text-emerald-300">
-                            ${afterLiqPrice.toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-[1fr_0.9fr_0.9fr] gap-4">
                           <span className="text-slate-500">Risk status</span>
                           <span className="text-amber-300">Caution</span>
                           <span className="text-emerald-300">Safe</span>
@@ -1024,17 +1078,17 @@ export default function Home() {
                       </div>
                       <div className="grid gap-4 text-sm text-slate-300">
                         <div className="flex justify-between border-b border-slate-800 pb-3">
-                          <span>Repay amount</span>
-                          <span>$1,500.00 USDC</span>
+                          <span>{isAddCollateral ? "Collateral amount" : "Repay amount"}</span>
+                          <span>{isAddCollateral ? "0.5 SOL (~$84)" : "$1,500.00 USDC"}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-800 pb-3">
                           <div>
                             <p>Argus fee</p>
                             <p className="text-xs text-slate-500">
-                              0.25% of repay amount
+                              0.25% of {isAddCollateral ? "SOL value" : "repay amount"}
                             </p>
                           </div>
-                          <span>$3.75 USDC</span>
+                          <span>{isAddCollateral ? "$0.21 USDC" : "$3.75 USDC"}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-800 pb-3">
                           <div>
@@ -1115,16 +1169,16 @@ export default function Home() {
                       Transaction summary
                     </p>
                     <p className="text-white">
-                      Repaying $1,500 USDC · Health factor {beforeHF.toFixed(2)}{" "}
-                      → {afterHF.toFixed(2)}
+                      {isAddCollateral
+                        ? "Adding 0.5 SOL · Health factor 1.31 → 1.74"
+                        : `Repaying $1,500 USDC · Health factor ${beforeHF.toFixed(2)} → ${afterHF.toFixed(2)}`}
                     </p>
                   </div>
                   <button
                     onClick={() => setConfirmSubmitted(true)}
                     className="mb-3 flex w-full items-center justify-center gap-2 rounded-3xl bg-[#00E5FF] px-4 py-4 text-sm font-semibold text-slate-950 hover:bg-cyan-300 transition"
                   >
-                    <span>🔒</span>
-                    Confirm — Repay $1,500 USDC
+                    {isAddCollateral ? "🔒 Confirm — Add 0.5 SOL" : "🔒 Confirm — Repay $1,500 USDC"}
                   </button>
                   <button
                     onClick={() => setActiveNav("simulator")}
