@@ -367,7 +367,7 @@ export default function Home() {
           body: "Your mSOL position dropped to 1.18 — inside the danger zone. Argus automatically repaid $1,200 USDC at 03:14 AM. Your health factor is now 1.52. No action needed.",
           buttons: [
             { label: "View transaction history", action: "history" },
-            { label: "Simulate a price drop", action: "simulate" },
+            { label: "Add Collateral →", action: "collateral" },
           ],
         };
       }
