@@ -1856,10 +1856,10 @@ export default function Home() {
                 </span>
               </div>
               <h1 className="text-6xl font-black text-white leading-tight">
-                Your Kamino positions,{" "}
-                <span className="bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                  protected while you sleep.
-                </span>
+              Never Get Liquidated{" "}
+            <span className="bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                Again.
+           </span>
               </h1>
             </div>
 
@@ -1989,7 +1989,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Step 1 */}
-              <div className="backdrop-blur-md bg-linear-to-br from-slate-900/40 to-slate-950/40 border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all">
+              <div className="backdrop-blur-md bg-linear-to-br from-slate-900/40 to-slate-950/40 border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all duration-700 hover:-translate-y-2">
                 <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center mb-6">
                   <span className="text-2xl">👁️</span>
                 </div>
@@ -2003,7 +2003,7 @@ export default function Home() {
               </div>
 
               {/* Step 2 */}
-              <div className="backdrop-blur-md bg-linear-to-br from-slate-900/40 to-slate-950/40 border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all">
+              <div className="backdrop-blur-md bg-linear-to-br from-slate-900/40 to-slate-950/40 border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all duration-700 hover:-translate-y-2">
                 <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center mb-6">
                   <span className="text-2xl">⚡</span>
                 </div>
@@ -2017,7 +2017,7 @@ export default function Home() {
               </div>
 
               {/* Step 3 */}
-              <div className="backdrop-blur-md bg-linear-to-br from-slate-900/40 to-slate-950/40 border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all">
+              <div className="backdrop-blur-md bg-linear-to-br from-slate-900/40 to-slate-950/40 border border-blue-500/20 rounded-2xl p-8 hover:border-blue-500/40 transition-all duration-700 hover:-translate-y-2">
                 <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center mb-6">
                   <span className="text-2xl">🛡️</span>
                 </div>
@@ -2052,6 +2052,26 @@ export default function Home() {
         {/* Stats Section */}
         <div className="min-h-[40vh] flex items-center justify-center px-8 py-20 border-t border-slate-800">
           <div className="max-w-4xl w-full">
+          </div>
+
+{/* CTA Banner */}
+<div className="mt-12 rounded-2xl bg-linear-to-r from-blue-600/20 to-teal-600/20 border border-blue-500/30 p-8 text-center">
+  <h3 className="text-2xl font-bold text-white mb-3">Start protecting your positions today.</h3>
+  <p className="text-slate-400 text-sm mb-6">Free to use. No funds held. Session keys only.</p>
+  <button
+    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all hover:scale-105"
+  >
+    Connect Wallet →
+  </button>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+);
+}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center">
                 <p className="text-4xl font-black text-transparent bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text mb-2">
