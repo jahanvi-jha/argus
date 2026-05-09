@@ -1816,11 +1816,7 @@ export default function Home() {
   // Landing Page - Disconnected State
   return (
     <div className="min-h-screen flex bg-linear-to-br from-slate-950 via-slate-900 to-slate-950">
-      <Sidebar
-        activeNav={activeNav}
-        setActiveNav={setActiveNav}
-        onDisconnect={handleDisconnect}
-      />
+      
 
       <div className="flex-1 overflow-auto">
         <div className="min-h-screen flex items-center justify-center px-8 py-12">
