@@ -33,7 +33,7 @@ const Sidebar = ({
   onDisconnect,
   showDisconnect = false,
 }: SidebarProps) => (
-  <div className="w-48 border-r border-slate-800 bg-slate-950 flex flex-col sticky top-0 h-screen">
+  <div className="fixed top-0 left-0 h-screen w-44 overflow-hidden z-10 border-r border-slate-800 bg-slate-950 flex flex-col">
     <div className="p-5 border-b border-slate-800">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
@@ -400,7 +400,7 @@ export default function Home() {
           showDisconnect={true}
         />
 
-        <div className="flex-1 flex">
+        <div className="flex-1 ml-44 flex">
           {/* Left Panel - 55% or Full Width */}
           <div
             className={`${isChatClosed ? "w-full" : "w-[55%]"} overflow-auto border-r border-slate-800 transition-all duration-300`}
@@ -605,7 +605,7 @@ export default function Home() {
           showDisconnect={true}
         />
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 ml-44 flex flex-col">
           {/* Header */}
           <div className="border-b border-slate-800 bg-slate-950/50 px-8 py-4">
             <div className="flex items-center justify-between">
@@ -653,7 +653,7 @@ export default function Home() {
           showDisconnect={true}
         />
 
-        <div className="flex-1 overflow-auto px-8 py-8">
+        <div className="flex-1 ml-44 overflow-auto px-8 py-8">
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -910,7 +910,7 @@ export default function Home() {
           showDisconnect={true}
         />
 
-        <div className="flex-1 overflow-auto px-8 py-8">
+        <div className="flex-1 ml-44 overflow-auto px-8 py-8">
           <div className="mx-auto max-w-6xl space-y-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
@@ -1206,7 +1206,7 @@ export default function Home() {
           showDisconnect={true}
         />
 
-        <div className="flex-1 overflow-auto px-8 py-8">
+        <div className="flex-1 ml-44 overflow-auto px-8 py-8">
           <div className="mx-auto max-w-6xl space-y-8">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -1576,7 +1576,7 @@ export default function Home() {
           showDisconnect={true}
         />
 
-        <div className="flex-1 overflow-auto px-8 py-8">
+        <div className="flex-1 ml-44 overflow-auto px-8 py-8">
           <div className="mx-auto max-w-6xl space-y-8">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
