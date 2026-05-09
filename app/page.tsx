@@ -301,23 +301,7 @@ export default function Home() {
 
   const handleDashboardAction = (action: string) => {
     // #region agent log
-    fetch("http://127.0.0.1:7435/ingest/18c5a4f5-d258-437b-87a3-44194075979e", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "509f24",
-      },
-      body: JSON.stringify({
-        sessionId: "509f24",
-        runId: "f18-dashboard",
-        hypothesisId: "H1",
-        location: "app/page.tsx:300",
-        message: "handleDashboardAction invoked",
-        data: { action, activeNav, confirmSubmitted, isAddCollateral },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    
     if (action === "history") {
       setActiveNav("history");
       return;
@@ -333,23 +317,7 @@ export default function Home() {
     }
     if (action === "collateral") {
       // #region agent log
-      fetch("http://127.0.0.1:7435/ingest/18c5a4f5-d258-437b-87a3-44194075979e", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "509f24",
-        },
-        body: JSON.stringify({
-          sessionId: "509f24",
-          runId: "f18-dashboard",
-          hypothesisId: "H2",
-          location: "app/page.tsx:332",
-          message: "collateral action branch hit",
-          data: { action },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
+      
       setConfirmSubmitted(false);
       setActiveNav("confirm-tx");
       setIsAddCollateral(true);
@@ -947,23 +915,7 @@ export default function Home() {
   // Confirm Transaction Screen
   if (isActive && activeNav === "confirm-tx") {
     // #region agent log
-    fetch("http://127.0.0.1:7435/ingest/18c5a4f5-d258-437b-87a3-44194075979e", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "509f24",
-      },
-      body: JSON.stringify({
-        sessionId: "509f24",
-        runId: "f18-dashboard",
-        hypothesisId: "H3",
-        location: "app/page.tsx:935",
-        message: "confirm-tx render",
-        data: { isAddCollateral, confirmSubmitted, activeNav },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+   
     return (
       <div className="min-h-screen flex bg-[#0A0A0F]">
         <Sidebar
