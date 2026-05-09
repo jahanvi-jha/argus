@@ -97,6 +97,9 @@ export default function Home() {
   const [emailAlerts, setEmailAlerts] = useState<boolean>(true);
   const [browserAlerts, setBrowserAlerts] = useState<boolean>(true);
   const [telegramConnected, setTelegramConnected] = useState<boolean>(false);
+  const [showTelegramModal, setShowTelegramModal] = useState<boolean>(false);
+  const [telegramModalState, setTelegramModalState] = useState<"default" | "failed" | "connected">("default");
+  const [telegramToast, setTelegramToast] = useState<boolean>(false);
   const [autoProtectEnabled, setAutoProtectEnabled] = useState<boolean>(false);
   const [autoProtectTriggered, setAutoProtectTriggered] =
     useState<boolean>(true);
@@ -1330,18 +1333,34 @@ export default function Home() {
                           <p className="text-sm font-semibold text-white">
                             Telegram bot
                           </p>
-                          <p className="text-slate-500 text-xs">
-                            Not connected — tap to set up
-                          </p>
+                          {telegramConnected ? (
+                            <p className="text-xs flex items-center gap-1 mt-0.5">
+                              <span style={{ color: "#48c78e" }}>●</span>
+                              <span style={{ color: "#48c78e" }}>
+                                @ArgusProtectBot · Connected
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="text-slate-500 text-xs">
+                              Not connected — tap to set up
+                            </p>
+                          )}
                         </div>
-                        <button
-                          onClick={() =>
-                            setTelegramConnected(!telegramConnected)
-                          }
-                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${telegramConnected ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-300"}`}
-                        >
-                          {telegramConnected ? "Connected" : "Connect"}
-                        </button>
+                        {telegramConnected ? (
+                          <span className="rounded-full px-4 py-2 text-sm font-semibold bg-emerald-400 text-slate-950">
+                            Connected ✓
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setShowTelegramModal(true);
+                              setTelegramModalState("default");
+                            }}
+                            className="rounded-full px-4 py-2 text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
+                          >
+                            Connect
+                          </button>
+                        )}
                       </div>
                     </div>
                   </section>
@@ -1450,6 +1469,96 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* Telegram Toast */}
+            {telegramToast && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-emerald-500/30 text-emerald-300 text-sm px-5 py-3 rounded-full shadow-lg">
+                Telegram connected — you'll now receive alerts via
+                @ArgusProtectBot
+              </div>
+            )}
+
+            {/* Telegram Modal */}
+            {showTelegramModal && (
+              <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div className="bg-[#111118] border border-slate-800 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-white">
+                      Connect Telegram
+                    </h2>
+                    <button
+                      onClick={() => setShowTelegramModal(false)}
+                      className="text-slate-400 hover:text-white transition"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    {[
+                      "Open Telegram — search @ArgusProtectBot",
+                      "Tap Start",
+                      "Confirm wallet 8xKf...3mPq",
+                      "Return and tap the button below",
+                    ].map((step, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 text-xs flex items-center justify-center shrink-0 mt-0.5">
+                          {i + 1}
+                        </span>
+                        <p className="text-slate-300 text-sm">{step}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <a
+                    href="https://t.me/ArgusProtectBot?start=8xKf3mPq"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-center w-full mb-4 px-4 py-3 rounded-2xl bg-slate-800 text-slate-300 text-sm font-semibold hover:bg-slate-700 transition"
+                  >
+                    Open @ArgusProtectBot in Telegram ↗
+                  </a>
+
+                  {telegramModalState === "failed" && (
+                    <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                      ⚠ We couldn't detect a connection yet. Make sure you
+                      tapped Start in the bot and try again.
+                    </div>
+                  )}
+
+                  {telegramModalState === "connected" ? (
+                    <div className="text-center text-emerald-300 text-sm font-semibold py-2">
+                      ✓ Connected successfully
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (telegramModalState === "default") {
+                          setTelegramModalState("failed");
+                        } else if (telegramModalState === "failed") {
+                          setTelegramConnected(true);
+                          setTelegramModalState("connected");
+                          setShowTelegramModal(false);
+                          setTelegramToast(true);
+                          window.setTimeout(() => setTelegramToast(false), 2500);
+                        }
+                      }}
+                      className="w-full px-4 py-3 rounded-2xl text-sm font-semibold transition"
+                      style={{ background: "#26A6A6", color: "#fff" }}
+                    >
+                      {telegramModalState === "failed"
+                        ? "Try again"
+                        : "I've connected — verify now"}
+                    </button>
+                  )}
+
+                  <p className="text-slate-500 text-xs text-center mt-4">
+                    Argus only sends read-only alerts via Telegram. The bot
+                    cannot access your funds or execute transactions.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
